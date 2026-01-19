@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { verifyEmail } from "../emailVerify/verifyEmail.js";
 import { Session } from "../models/sessionModel.js";
+import { sendOTPMail } from "../emailVerify/sendOTPmail.js";
 
 export const register = async (req, res) => {
   try {
@@ -31,10 +32,12 @@ export const register = async (req, res) => {
       email,
       password: hashedPassword,
     });
-    const token = jwt.sign({id:newUser._id},process.env.SECRET_KEY,{expiresIn:"10m"})
-    verifyEmail(token,email)
+    const token = jwt.sign({ id: newUser._id }, process.env.SECRET_KEY, {
+      expiresIn: "10m",
+    });
+    verifyEmail(token, email);
     newUser.token = token;
-await newUser.save()
+    await newUser.save();
     return res.status(201).json({
       success: true,
       message: "User registered successfully",
@@ -207,21 +210,22 @@ export const login = async (req, res) => {
     });
 
     // Check for exisiting session and delete it
-const existingSession = await Session.findOne({userId:exisitingUser._id})
-if(existingSession){
-    await Session.deleteOne({userId:exisitingUser._id})
-}
+    const existingSession = await Session.findOne({
+      userId: exisitingUser._id,
+    });
+    if (existingSession) {
+      await Session.deleteOne({ userId: exisitingUser._id });
+    }
 
-// Create a new session
-await Session.create({userId:exisitingUser._id})
-return res.status(200).json({
-    success:true,
-    message: `Welcome back ${exisitingUser.firstName}`,
-    user:exisitingUser,
-    accessToken,
-    refreshToken
-})
-
+    // Create a new session
+    await Session.create({ userId: exisitingUser._id });
+    return res.status(200).json({
+      success: true,
+      message: `Welcome back ${exisitingUser.firstName}`,
+      user: exisitingUser,
+      accessToken,
+      refreshToken,
+    });
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -229,3 +233,118 @@ return res.status(200).json({
     });
   }
 };
+
+export const logout = async (req, res) => {
+  try {
+    const userId = req.id;
+
+    await Session.deleteMany({ userId: userId });
+    await User.findByIdAndUpdate(userId, { isLoggedIn: false });
+
+    return res.status(200).json({
+      success: true,
+      message: "User logged out successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+
+    user.otp = otp;
+    user.otpExpiry = otpExpiry;
+
+    await user.save();
+    await sendOTPMail(otp, email);
+
+    return res.status(200).json({
+      success: true,
+      message: "Otp sent to email successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const verifyOTP = async (req, res) => {
+  try {
+    const { otp } = req.body
+    const email = req.params.email
+
+    if (!otp) {
+      return res.status(400).json({
+        success: false,
+        message: 'Otp is required'
+      })
+    }
+
+    const user = await User.findOne({ email })
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: "User not found"
+      })
+    }
+
+    if (!user.otp || !user.otpExpiry) {
+      return res.status(400).json({
+        success: false,
+        message: 'Otp is not generated or already verified'
+      })
+    }
+
+    if (user.otpExpiry < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Otp has expired please req"
+      })
+    }
+
+if(!otp=)
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message
+    })
+  }
+}
+
+
+export const allUser = async (req,res)=>{
+
+try {
+  const user = await user.find()
+  return res.status(200).json({
+    success: true,
+    user
+  })
+} catch (error) {
+  return res.status(500).json({
+    success: false,
+    message: error.message
+  })
+  
+}
+
+}

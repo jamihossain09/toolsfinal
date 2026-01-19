@@ -1,6 +1,6 @@
 
 import { user } from "../models/userModel.js";
-
+import jwt from "jsonwebtoken"
 export const isAuthenticated = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -16,10 +16,7 @@ export const isAuthenticated = async (req, res, next) => {
     let decoded;
 
     try {
-      decoded = JsonWebTokenError.verify(
-        token,
-        process.env.SECRET_KEY
-      );
+      decoded = jwt.verify(token, process.env.SECRET_KEY);
     } catch (error) {
       if (error.name === "TokenExpiredError") {
         return res.status(400).json({
@@ -42,7 +39,7 @@ export const isAuthenticated = async (req, res, next) => {
         message: "User not found",
       });
     }
-
+req.user = user
     req.id = user._id;
     next();
   } catch (error) {
@@ -52,3 +49,16 @@ export const isAuthenticated = async (req, res, next) => {
     });
   }
 };
+
+
+export const isAdmin =(req,res,next)=>{
+if(req.user && req.user.role === "admin"){
+  next()
+}
+else{
+  return res.status(403).json({
+    message:"denied"
+  })
+}
+
+}
